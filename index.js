@@ -27,28 +27,31 @@ var cheerio = require('cheerio');
 
 var fs = require('fs');
 
+var myTimer;
+
 var inst_file_name_global = '/home/vit/inst.txt';
+var inst_virtual_file_global = '';
+var flag_inst = 0;
 fs.writeFile(inst_file_name_global, '' ,function (err) {
     if (err) return console.log(err);
 });
 
 var table_file_name_global = '/home/vit/tables.txt';
+var table_virtual_file_global = '';
+var flag_table = 1;
 fs.writeFile(table_file_name_global, '' ,function (err) {
     if (err) return console.log(err);
 });
 
-var spec_file_name_global = '/home/vit/spec.txt';
-fs.writeFile(spec_file_name_global, '' ,function (err) {
-    if (err) return console.log(err);
-});
 
 
 var main_page_link = 'http://vstup.info';
 //var main_page_link = 'http://vstup.info/2015/282/i2015i282p253531.html#list';
 
 
+
 ///////////////////////////////////////////////////////////////////////////////////////////////
-var export_table = function(table_page$, page_link_param, inst_file_name) {
+var export_table = function(table_page$, page_link_param, flag) {
     table_page$('table').each(function (i, element) {
         var table_id = table_page$(this).attr('id');
         if (typeof table_id === typeof '' && table_id != 'shortstat' && table_id != 'legend') {
@@ -102,10 +105,15 @@ var export_table = function(table_page$, page_link_param, inst_file_name) {
 
 
             //console.log(arr);
-            fs.appendFile(inst_file_name, arr.join(',\n') + ',\n',function (err) {
-                if (err) return console.log(err);
-                //if (arr != '') console.log(arr.join(',\n') + ', > ' + inst_file_name);
-            });
+            if (flag == flag_inst)
+                inst_virtual_file_global = inst_virtual_file_global + arr.join(',\n') + ',\n';
+            else if (flag == flag_table)
+                table_virtual_file_global = table_virtual_file_global + arr.join(',\n') + ',\n';
+
+//            fs.appendFile(inst_file_name, arr.join(',\n') + ',\n',function (err) {
+//                if (err) return console.log(err);
+//                //if (arr != '') console.log(arr.join(',\n') + ', > ' + inst_file_name);
+//            });
 
         }
     });
@@ -128,7 +136,7 @@ request(main_page_link, function (error, response, html) {
             var spec_page_link = main_page$(this).attr('href');
             if (typeof spec_page_link === typeof '' && spec_page_link.indexOf('/2015/i2015okr') > -1) {
                 if (false == once_done) {
-                    once_done = true;
+                   // once_done = true;
                     console.log('loading: ' + spec_page_link);
 
                     request( main_page_link + spec_page_link, function (error, response, html) {
@@ -139,7 +147,7 @@ request(main_page_link, function (error, response, html) {
                                 var inst_page = spec_page$(this).attr('href');
                                 if (typeof inst_page === typeof '' && inst_page.indexOf('./i2015') > -1) {
                                     if (2 > spec_once_done) {
-                                        spec_once_done++;
+                                        //spec_once_done++;
                                         var full_inst_page_link = main_page_link + '/2015' + inst_page.substr(1);
                                         console.log('loading: #'+ i + " " + full_inst_page_link);
 
@@ -154,24 +162,42 @@ request(main_page_link, function (error, response, html) {
 
                                                     if (typeof table_link === typeof '' && table_link.indexOf('i2015i') > -1) {
                                                         if (2 > inst_once_done) {
-                                                            inst_once_done++;
+                                                         //   inst_once_done++;
 
                                                             var table_link_full = main_page_link + '/2015' + table_link.substr(1);
                                                             console.log('loading:#' + i + " "  + table_link_full);
 
-                                                            export_table(inst_page$, table_link_full, inst_file_name_global);
+                                                            export_table(inst_page$, table_link_full, flag_inst);
 
                                                             request(table_link_full, function (error, response, html) {
                                                                 if (!error && response.statusCode == 200) {
                                                                     var table_page$ = cheerio.load(html);
 
-                                                                    export_table(table_page$, table_link_full, table_file_name_global);
+                                                                    export_table(table_page$, table_link_full, flag_table);
                                                                     //export_table(table_page$, table_link_full);
 
                                                                     //table_page$('span.tablesaw-cell-content').each(function (i, element) {
                                                                     //    var table_cell = table_page$(this).text();
                                                                     //    console.log("hey: " + table_cell);
                                                                     //});
+                                                                    clearTimeout(myTimer);
+                                                                    var timeout = 60;
+                                                                    myTimer = setTimeout(function(){console.log(timeout + " sec no action.");
+                                                                            clearTimeout(myTimer);
+
+                                                                            //console.log(inst_virtual_file_global);
+                                                                            fs.appendFile(inst_file_name_global, inst_virtual_file_global,function (err) {
+                                                                                if (err) return console.log(err);
+                                                                                //if (arr != '') console.log(arr.join(',\n') + ', > ' + inst_file_name);
+                                                                            });
+                                                                            fs.appendFile(table_file_name_global, table_virtual_file_global,function (err) {
+                                                                                if (err) return console.log(err);
+                                                                                //if (arr != '') console.log(arr.join(',\n') + ', > ' + inst_file_name);
+                                                                            });
+
+                                                                        },
+                                                                    timeout*1000
+                                                                    );
                                                                 }
                                                             });
 
@@ -199,8 +225,13 @@ request(main_page_link, function (error, response, html) {
         });
 
 
+
     }
+
+
 });
+
+
 /*
  var server = http.createServer(function (request, response) {
 
